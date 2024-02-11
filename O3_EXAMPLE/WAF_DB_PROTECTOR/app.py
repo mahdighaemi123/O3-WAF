@@ -10,7 +10,6 @@ from transformers import AutoTokenizer
 from werkzeug.middleware.proxy_fix import ProxyFix
 from pymongo import MongoClient
 
-# Initialize Flask app
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1)
 
@@ -39,7 +38,6 @@ redis_client = redis.StrictRedis(host=redis_host, port=6379, db=0)
 model_name = "distilbert-base-uncased"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-# Function to create necessary database tables
 
 
 def create_tables(conn):
@@ -47,7 +45,6 @@ def create_tables(conn):
     try:
         cursor = conn.cursor(dictionary=True)
 
-        # Create users table if not exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -56,7 +53,6 @@ def create_tables(conn):
             )
         ''')
 
-        # Create documents table if not exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS documents (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -77,7 +73,6 @@ def create_tables(conn):
         if cursor:
             cursor.close()
 
-# Function to predict if input text is from an attacker
 
 
 def predict_is_from_attacker(input_text):
@@ -93,7 +88,6 @@ def predict_is_from_attacker(input_text):
                                   "attention_mask": [attention_mask]}})
 
     response = requests.post(url, data=data)
-    # Map predicted class to label
     id2label = {
         0: "NORMAL",
         1: "ATTACKER",
@@ -108,7 +102,6 @@ def predict_is_from_attacker(input_text):
     else:
         app.logger.warning("Error:", response.status_code)
 
-# Function to determine if an attack is happening
 
 
 def is_attack(url, datas):
@@ -137,7 +130,6 @@ def is_attack(url, datas):
     return result
 
 
-# Connect to MySQL database
 try:
     conn = mysql.connector.connect(
         host=mysql_host,
@@ -152,7 +144,6 @@ try:
 except Error as e:
     app.logger.error("Error connecting to MySQL database:", e)
 
-# Connect to fake MySQL database
 try:
     fake_conn = mysql.connector.connect(
         host=fake_mysql_host,
@@ -167,7 +158,6 @@ try:
 except Error as e:
     app.logger.error("Error connecting to FAKE MySQL database:", e)
 
-# Endpoint to execute SQL queries
 
 
 @app.route('/execute', methods=['POST'])
@@ -210,7 +200,6 @@ def execute():
         if cursor:
             cursor.close()
 
-# Endpoint to fetch all rows based on a query
 
 
 @app.route('/fetchall', methods=['POST'])
@@ -241,7 +230,6 @@ def fetch_all():
         if cursor:
             cursor.close()
 
-# Endpoint to fetch one row based on a query
 
 
 @app.route('/fetchone', methods=['POST'])
@@ -276,7 +264,6 @@ def fetch_one():
         if cursor:
             cursor.close()
 
-# Endpoint to get row count based on a query
 
 
 @app.route('/rowcount', methods=['POST'])
@@ -310,6 +297,5 @@ def rowcount():
             cursor.close()
 
 
-# Run Flask app
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=port)

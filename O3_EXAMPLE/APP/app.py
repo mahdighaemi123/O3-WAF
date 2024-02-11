@@ -6,7 +6,6 @@ from datetime import timedelta
 
 app = Flask(__name__)
 
-# Configuration
 app.config.update(
     PORT=os.environ.get("PORT", 8080),
     DB_PROXY=os.environ.get("DB_PROXY", "127.0.0.1"),
@@ -16,9 +15,7 @@ app.config.update(
     JWT_EXPIRATION_DELTA=timedelta(hours=1)
 )
 
-# Database proxy URL
 DB_PROXY_URL = f"http://{app.config['DB_PROXY']}:{app.config['DB_PROXY_PORT']}"
-
 
 def execute_query(query, forwarded_for=None):
     payload = {"query": query}
@@ -61,9 +58,9 @@ def index():
                                  app.config['JWT_ALGORITHM']])
             return redirect('/documents.html')
         except jwt.ExpiredSignatureError:
-            pass  # Token has expired
+            pass  
         except jwt.InvalidTokenError:
-            pass  # Invalid token
+            pass 
     return redirect('/login_register.html')
 
 
