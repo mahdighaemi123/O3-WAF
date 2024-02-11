@@ -14,6 +14,7 @@ if api_key:
     )
 
 db = os.environ.get("DB", "127.0.0.1")
+
 mongo_client = pymongo.MongoClient(f"mongodb://{db}:27017/")
 db = mongo_client["O3"]
 attacks_collection = db["ATTACKS"]

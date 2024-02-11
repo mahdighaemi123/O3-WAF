@@ -77,10 +77,11 @@ services:
       FAKE_MYSQL_PASSWORD: your_password
       FAKE_MYSQL_DB: doc_app
       FAKE_MYSQL_PORT: 3307
-      
+
     depends_on:
       - db
       - fake_db
+      - waf_db_protector
 
   app:
     build: ./APP/

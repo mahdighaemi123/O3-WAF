@@ -1,0 +1,12 @@
+model_config_list: {
+  config: {
+    name: "waf_db_protector",
+    base_path: "/models/waf_db_protector",
+    model_platform: "tensorflow"
+  },
+  config: {
+     name: "waf_edge",
+     base_path: "/models/waf_edge",
+     model_platform: "tensorflow"
+  }
+}

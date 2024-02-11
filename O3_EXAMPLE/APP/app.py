@@ -23,28 +23,32 @@ DB_PROXY_URL = f"http://{app.config['DB_PROXY']}:{app.config['DB_PROXY_PORT']}"
 def execute_query(query, forwarded_for=None):
     payload = {"query": query}
     headers = {'X-Real-IP': forwarded_for} if forwarded_for else {}
-    response = requests.post(f"{DB_PROXY_URL}/execute", json=payload, headers=headers)
+    response = requests.post(
+        f"{DB_PROXY_URL}/execute", json=payload, headers=headers)
     return response.json()["result"]
 
 
 def fetch_all(query, forwarded_for=None):
     payload = {"query": query}
     headers = {'X-Real-IP': forwarded_for} if forwarded_for else {}
-    response = requests.post(f"{DB_PROXY_URL}/fetchall", json=payload, headers=headers)
+    response = requests.post(
+        f"{DB_PROXY_URL}/fetchall", json=payload, headers=headers)
     return response.json()["result"]
 
 
 def fetch_one(query, forwarded_for=None):
     payload = {"query": query}
     headers = {'X-Real-IP': forwarded_for} if forwarded_for else {}
-    response = requests.post(f"{DB_PROXY_URL}/fetchone", json=payload, headers=headers)
+    response = requests.post(
+        f"{DB_PROXY_URL}/fetchone", json=payload, headers=headers)
     return response.json()["result"]
 
 
 def row_count(query, forwarded_for=None):
     payload = {"query": query}
     headers = {'X-Real-IP': forwarded_for} if forwarded_for else {}
-    response = requests.post(f"{DB_PROXY_URL}/rowcount", json=payload, headers=headers)
+    response = requests.post(
+        f"{DB_PROXY_URL}/rowcount", json=payload, headers=headers)
     return response.json()
 
 
@@ -53,7 +57,8 @@ def index():
     token = request.cookies.get('jwt_token')
     if token:
         try:
-            payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
+            payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[
+                                 app.config['JWT_ALGORITHM']])
             return redirect('/documents.html')
         except jwt.ExpiredSignatureError:
             pass  # Token has expired
@@ -91,10 +96,11 @@ def login():
 
     query = f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'"
     result = fetch_one(query, forwarded_for=forwarded_for)
-
+    print(result)
     if result:
-        payload = {'username': username}
-        token = jwt.encode(payload, app.config['JWT_SECRET_KEY'], algorithm=app.config['JWT_ALGORITHM'])
+        payload = {'id': result["id"], 'username': username}
+        token = jwt.encode(
+            payload, app.config['JWT_SECRET_KEY'], algorithm=app.config['JWT_ALGORITHM'])
         response = make_response(jsonify({"message": "Login successful"}), 200)
         response.set_cookie('jwt_token', token, httponly=True)
         return response
@@ -104,7 +110,8 @@ def login():
 
 @app.route('/logout')
 def logout():
-    response = make_response(jsonify({"message": "Logged out successfully"}), 200)
+    response = make_response(
+        jsonify({"message": "Logged out successfully"}), 200)
     response.set_cookie('jwt_token', '', expires=0, httponly=True)
     return response
 
@@ -118,16 +125,17 @@ def get_documents():
         return jsonify({"error": "Unauthorized access"}), 401
 
     try:
-        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
+        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[
+                             app.config['JWT_ALGORITHM']])
+        id = payload['id']
         username = payload['username']
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Token has expired"}), 401
     except jwt.InvalidTokenError:
         return jsonify({"error": "Invalid token"}), 401
 
-    query = f"SELECT id, document FROM documents WHERE user_id = (SELECT id FROM users WHERE username = '{username}')"
-    result = fetch_all(query, forwarded_for=forwarded_for)
-    documents_list = [{'id': row[0], 'document': row[1]} for row in result]
+    query = f"SELECT id, document FROM documents WHERE user_id = {id}"
+    documents_list = fetch_all(query, forwarded_for=forwarded_for)
     return jsonify(documents_list), 200
 
 
@@ -140,7 +148,9 @@ def add_document():
         return jsonify({"error": "Unauthorized access"}), 401
 
     try:
-        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
+        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[
+                             app.config['JWT_ALGORITHM']])
+        id = payload['id']
         username = payload['username']
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Token has expired"}), 401
@@ -152,7 +162,7 @@ def add_document():
     if not document:
         return jsonify({"error": "Document is required"}), 400
 
-    query = f"INSERT INTO documents (user_id, document) VALUES ((SELECT id FROM users WHERE username = '{username}'), '{document}')"
+    query = f"INSERT INTO documents (user_id, document) VALUES ({id}, '{document}')"
     execute_query(query, forwarded_for=forwarded_for)
     return jsonify({"message": "Document added successfully"}), 201
 
@@ -166,14 +176,16 @@ def delete_document(document_id):
         return jsonify({"error": "Unauthorized access"}), 401
 
     try:
-        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
+        payload = jwt.decode(token, app.config['JWT_SECRET_KEY'], algorithms=[
+                             app.config['JWT_ALGORITHM']])
+        id = payload['id']
         username = payload['username']
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Token has expired"}), 401
     except jwt.InvalidTokenError:
         return jsonify({"error": "Invalid token"}), 401
 
-    query = f"DELETE FROM documents WHERE id = {document_id} AND user_id = (SELECT id FROM users WHERE username = '{username}')"
+    query = f"DELETE FROM documents WHERE id = {document_id} AND user_id = {id}"
     execute_query(query, forwarded_for=forwarded_for)
 
     return jsonify({"message": "Document deleted successfully"}), 200

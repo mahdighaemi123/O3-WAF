@@ -18,7 +18,8 @@ mongo_client = MongoClient("mongodb://mongo:27017/")
 db = mongo_client["O3"]
 attacks_collection = db["ATTACKS"]
 
-# Retrieve environment variables or use default values
+port = os.environ.get("PORT", 5051)
+
 mysql_host = os.environ.get("MYSQL_HOST", "localhost")
 mysql_port = os.environ.get("MYSQL_PORT", 3306)
 mysql_user = os.environ.get("MYSQL_USER", "your_username")
@@ -31,7 +32,6 @@ fake_mysql_user = os.environ.get("FAKE_MYSQL_USER", "your_username")
 fake_mysql_password = os.environ.get("FAKE_MYSQL_PASSWORD", "your_password")
 fake_mysql_db = os.environ.get("FAKE_MYSQL_DB", "doc_app")
 
-port = os.environ.get("PORT", 5051)
 
 redis_host = os.environ.get("REDIS_HOST", "127.0.0.1")
 redis_client = redis.StrictRedis(host=redis_host, port=6379, db=0)
@@ -45,7 +45,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 def create_tables(conn):
     cursor = None
     try:
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
 
         # Create users table if not exists
         cursor.execute('''
@@ -111,12 +111,14 @@ def predict_is_from_attacker(input_text):
 # Function to determine if an attack is happening
 
 
-def is_attack(datas):
+def is_attack(url, datas):
     ip_address = request.headers.get('X-Real-IP', request.remote_addr)
     app.logger.warning(f"ip_address -> {ip_address}")
 
     cached_result = redis_client.get(ip_address)
     if cached_result is not None:
+        attacks_collection.insert_one(
+            {"ip": ip_address, "url": url, "time": time.time(), "content": datas, "detector": "last_attack", "logger": "db"})
         return True
 
     result = False
@@ -130,7 +132,7 @@ def is_attack(datas):
     if result:
         redis_client.set(ip_address, "ATTACKER", ex=3600)
         attacks_collection.insert_one(
-            {"ip": ip_address, "time": time.time(), "content": datas, "detector": "edge"})
+            {"ip": ip_address, "url": url, "time": time.time(), "content": datas, "detector": "db", "logger": "db"})
 
     return result
 
@@ -179,15 +181,15 @@ def execute():
 
     cursor = None
     try:
-        if is_attack({"query": query}):
-            cursor = fake_conn.cursor()
+        if is_attack(request.url, {"query": query}):
+            cursor = fake_conn.cursor(dictionary=True)
         else:
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
 
         cursor.execute(query)
         cursor.fetchall()
 
-        if is_attack({"query": query}):
+        if is_attack(request.url, {"query": query}):
             fake_conn.commit()
         else:
             conn.commit()
@@ -198,7 +200,7 @@ def execute():
         app.logger.error("Error executing query:", e)
         if cursor:
             cursor.close()
-        if is_attack({"query": query}):
+        if is_attack(request.url, {"query": query}):
             fake_conn.rollback()
         else:
             conn.rollback()
@@ -222,10 +224,10 @@ def fetch_all():
 
     cursor = None
     try:
-        if is_attack({"query": query}):
-            cursor = fake_conn.cursor()
+        if is_attack(request.url, {"query": query}):
+            cursor = fake_conn.cursor(dictionary=True)
         else:
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
 
         cursor.execute(query)
         result = cursor.fetchall()
@@ -253,10 +255,10 @@ def fetch_one():
 
     cursor = None
     try:
-        if is_attack({"query": query}):
-            cursor = fake_conn.cursor()
+        if is_attack(request.url, {"query": query}):
+            cursor = fake_conn.cursor(dictionary=True)
         else:
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
 
         cursor.execute(query)
 
@@ -288,10 +290,10 @@ def rowcount():
 
     cursor = None
     try:
-        if is_attack({"query": query}):
-            cursor = fake_conn.cursor()
+        if is_attack(request.url, {"query": query}):
+            cursor = fake_conn.cursor(dictionary=True)
         else:
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
 
         cursor.execute(query)
         cursor.fetchall()

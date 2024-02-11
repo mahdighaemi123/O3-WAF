@@ -8,6 +8,7 @@ from transformers import AutoTokenizer
 from werkzeug.middleware.proxy_fix import ProxyFix
 from pymongo import MongoClient
 
+
 mongo_client = MongoClient("mongodb://mongo:27017/")
 db = mongo_client["O3"]
 attacks_collection = db["ATTACKS"]
@@ -53,23 +54,27 @@ def predict_is_from_attacker(input_text):
         return False
 
 
-def is_attack(datas):
+def is_attack(url, datas):
     ip_address = request.headers.get('X-Real-IP', request.remote_addr)
     app.logger.warning(f"ip_address -> {ip_address}")
 
     cached_result = redis_client.get(ip_address)
     if cached_result is not None:
+        attacks_collection.insert_one(
+            {"ip": ip_address, "url": url, "time": time.time(), "content": datas, "detector": "last_attack", "logger": "edge"})
         return True
     result = False
+
     for key, value in datas.items():
         if value is None:
             value = "NONE"
         is_from_attacker = predict_is_from_attacker(value)
         result = is_from_attacker or result
+
     if result:
         redis_client.set(ip_address, "ATTACKER", ex=3600)
         attacks_collection.insert_one(
-            {"ip": ip_address, "time": time.time(), "content": datas, "detector": "edge"})
+            {"ip": ip_address, "url": url, "time": time.time(), "content": datas, "detector": "edge", "logger": "edge"})
 
     return result
 
@@ -83,27 +88,30 @@ def proxy(path):
 
     if request.method in ['GET', 'DELETE', 'OPTIONS', 'HEAD']:
         params = request.args
-        if is_attack(params):
+        if is_attack(request.url, params):
             url = f'http://{fake_server}:{fake_server_port}/{path}'
 
     elif request.method in ['POST', 'PUT', 'PATCH']:
         data = request.json
-        if is_attack(data):
+        if is_attack(request.url, data):
             url = f'http://{fake_server}:{fake_server_port}/{path}'
+
+    headers = {key: value for (key, value)
+               in request.headers if key != 'Host'}
+    headers['X-Real-IP'] = client_ip
 
     resp = requests.request(
         method=request.method,
         url=url,
-        headers={key: value for (key, value)
-                 in request.headers if key != 'Host'},
+        headers=headers,
         data=request.get_data(),
         cookies=request.cookies,
         allow_redirects=False)
 
     excluded_headers = ['content-encoding',
                         'content-length', 'transfer-encoding', 'connection']
+
     headers = resp.raw.headers.copy()
-    headers['X-Real-IP'] = client_ip
 
     headers = [(name, value) for (name, value) in headers.items()
                if name.lower() not in excluded_headers]
