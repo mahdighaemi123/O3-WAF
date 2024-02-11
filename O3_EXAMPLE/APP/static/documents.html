@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Save Text Document</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <style>
+        .document {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            padding: 10px;
+        }
+
+        .delete-btn {
+            margin-left: 5px;
+        }
+
+        .card {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">Add Document</h2>
+                <div class="mb-3">
+                    <label for="documentInput" class="form-label">Enter Document:</label>
+                    <input type="text" id="documentInput" class="form-control" required>
+                </div>
+                <button id="addDocumentBtn" class="btn btn-primary">Add Document</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <h2 class="card-title">Documents</h2>
+                <ul id="documentList" class="list-group">
+                    <!-- Documents will be dynamically added here -->
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+
+    <script>
+        document.getElementById('addDocumentBtn').addEventListener('click', function () {
+            // Get the value of the input field
+            let documentText = document.getElementById('documentInput').value;
+
+            // Check if the input field is not empty
+            if (documentText.trim() !== '') {
+
+                fetch('/documents', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ document: documentText })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to add document');
+                        }
+                        fetchDocuments()
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+
+                // Clear the input field
+                document.getElementById('documentInput').value = '';
+            }
+        });
+
+        // Function to fetch documents from the server and populate the list
+        function fetchDocuments() {
+            fetch('/documents')
+                .then(response => response.json())
+                .then(documents => {
+                    document.getElementById('documentList').innerHTML = ""
+                    documents.forEach(documentObject => {
+                        
+                        let documentText = documentObject.document
+                        let id = documentObject.id
+
+                        let listItem = document.createElement('li');
+                        listItem.className = 'document list-group-item';
+                        listItem.textContent = documentText;
+
+                        let deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'btn btn-danger btn-sm delete-btn';
+                        deleteBtn.textContent = 'Delete';
+                        deleteBtn.addEventListener('click', function () {
+
+                            // Delete the document from the server
+                            fetch(`/documents/${id}`, {
+                                method: 'DELETE'
+                            })
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error('Failed to delete document');
+                                    } else {
+                                        listItem.remove();
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                });
+                        });
+
+                        listItem.appendChild(deleteBtn);
+                        document.getElementById('documentList').appendChild(listItem);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        // Call fetchDocuments initially to populate the list
+        fetchDocuments();
+    </script>
+
+</body>
+
+</html>

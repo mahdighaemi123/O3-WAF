@@ -1,0 +1,6 @@
+flask
+mysql-connector-python
+requests
+redis
+transformers
+pymongo
